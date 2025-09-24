@@ -47,7 +47,8 @@ contract TestDarkCoWHook is Test, Deployers {
         );
         hook = DarkCoWHook(payable(address(flags)));
 
-        (key, ) = initPool(
+        PoolId poolId;
+        (key, poolId) = initPool(
             currency0,
             currency1,
             hook,

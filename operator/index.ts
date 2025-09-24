@@ -384,6 +384,7 @@ const processBatch = async (batchNumber: bigint) => {
                     })),
                     result.swapBalances,
                     signature,
+                    "0x"  // Empty zkProof for now - TODO: implement real ZK proof generation
                 ]);
 
                 console.log("Transaction submitted successfully");
