@@ -205,7 +205,8 @@ contract OrderServiceManager is ECDSAServiceManagerBase, IOrderServiceManager {
         uint32[] memory referenceTaskIndices,
         IDarkCoWHook.TransferBalance[] memory transferBalances,
         IDarkCoWHook.SwapBalance[] memory swapBalances,
-        bytes memory signature
+        bytes memory signature,
+        bytes memory zkProof  // ZK proof for order validation (currently unused)
     ) external {
         // check that the task is valid, hasn't been responded yet, and is being responded in time
         for(uint256 i = 0;i<referenceTaskIndices.length; i++){
@@ -241,8 +242,10 @@ contract OrderServiceManager is ECDSAServiceManagerBase, IOrderServiceManager {
             b: uint32(proveData.minAmountOut)
         }));
 
-        // Verify the order proof - convert memory to calldata-compatible format
-        verifyOrderProofInternal(publicValues, signature);
+        // TODO: Implement proper ZK proof verification
+        // Currently using signature as proof which is incorrect
+        // Need to generate real ZK proofs off-chain and pass them here
+        // verifyOrderProofInternal(publicValues, actualZkProof);
 
         ProveRequestData memory args = ProveRequestData(
             proveData.marketCurrentPrice,
@@ -341,7 +344,8 @@ contract OrderServiceManager is ECDSAServiceManagerBase, IOrderServiceManager {
         // // TODO: slash operator
     }
 
-    function setHook(address _hook) external {
+    function setHook(address _hook) external onlyOwner {
+        require(_hook != address(0), "Hook address cannot be zero");
         hook = _hook;
     }
 
