@@ -13,6 +13,7 @@ import {StateLibrary} from "v4-core/libraries/StateLibrary.sol";
 import {Currency, CurrencyLibrary} from "v4-core/types/Currency.sol";
 import {CurrencySettler} from "v4-periphery/lib/v4-core/test/utils/CurrencySettler.sol";
 import {SwapParams} from "v4-core/types/PoolOperation.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "forge-std/console.sol";
 
 
@@ -36,7 +37,7 @@ interface IOrderServiceManager {
     ) external returns (Task memory task);
 }
 
-contract DarkCoWHook is BaseHook{
+contract DarkCoWHook is BaseHook, ReentrancyGuard {
     using CurrencyLibrary for Currency;
     using CurrencySettler for Currency;
     using BalanceDeltaLibrary for BalanceDelta;
@@ -185,6 +186,7 @@ contract DarkCoWHook is BaseHook{
                 address(this),
                 Currency.wrap(transferBalances[i].currency).toId()
             );
+            require(hookBalanceOfCurrency >= amount, "Insufficient hook balance for settlement");
             console.log("Hook Balance of currency", hookBalanceOfCurrency);
             console.log("Burning amount", amount);
 
@@ -220,11 +222,10 @@ contract DarkCoWHook is BaseHook{
         }
 
         if (swapDelta.amount0() > 0) {
-            key.currency0.take(
-                poolManager,
+            poolManager.take(
+                key.currency0,
                 address(this),
-                uint256(int256(swapDelta.amount0())),
-                false
+                uint256(int256(swapDelta.amount0()))
             );
         }
 
@@ -238,11 +239,10 @@ contract DarkCoWHook is BaseHook{
         }
 
         if (swapDelta.amount1() > 0) {
-            key.currency1.take(
-                poolManager,
+            poolManager.take(
+                key.currency1,
                 address(this),
-                uint256(int256(swapDelta.amount1())),
-                false
+                uint256(int256(swapDelta.amount1()))
             );
         }
         if (swapDelta.amount1() < 0) {
@@ -262,7 +262,7 @@ contract DarkCoWHook is BaseHook{
         bytes32 poolId,
         TransferBalance[] memory transferBalances,
         SwapBalance[] memory swapBalances
-    ) external onlyAVS {
+    ) external onlyAVS nonReentrant {
         poolManager.unlock(
             abi.encode(poolKeys[poolId], transferBalances, swapBalances)
         );
