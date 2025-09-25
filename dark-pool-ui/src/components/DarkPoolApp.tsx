@@ -1,12 +1,30 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { web3Service } from '../utils/web3';
+import { ContractInteraction } from './ContractInteraction';
+import { TransactionInfo } from '../config/contracts';
 
 export const DarkPoolApp: React.FC = () => {
   const [isConnected, setIsConnected] = useState(false);
+  const [userAddress, setUserAddress] = useState('');
+  const [ensName, setEnsName] = useState<string | undefined>();
   const [showZKModal, setShowZKModal] = useState(false);
   const [pendingTrade, setPendingTrade] = useState<any>(null);
+  const [recentTransactions, setRecentTransactions] = useState<TransactionInfo[]>([]);
+  const [isConnecting, setIsConnecting] = useState(false);
 
-  const handleConnectWallet = () => {
-    setIsConnected(true);
+  const handleConnectWallet = async () => {
+    setIsConnecting(true);
+    try {
+      const { address, ensName } = await web3Service.connectWallet();
+      setIsConnected(true);
+      setUserAddress(address);
+      setEnsName(ensName);
+    } catch (error: any) {
+      console.error('Failed to connect wallet:', error);
+      // Show error to user
+    } finally {
+      setIsConnecting(false);
+    }
   };
 
   const handleTradeSubmit = (trade: any) => {
@@ -73,14 +91,15 @@ export const DarkPoolApp: React.FC = () => {
                 {!isConnected ? (
                   <button
                     onClick={handleConnectWallet}
+                    disabled={isConnecting}
                     style={{
-                      background: 'linear-gradient(90deg, #2563eb, #7c3aed)',
+                      background: isConnecting ? '#6b7280' : 'linear-gradient(90deg, #2563eb, #7c3aed)',
                       color: 'white',
                       fontWeight: '600',
                       padding: '8px 16px',
                       borderRadius: '8px',
                       border: 'none',
-                      cursor: 'pointer',
+                      cursor: isConnecting ? 'not-allowed' : 'pointer',
                       transition: 'all 0.2s'
                     }}
                     onMouseEnter={(e) => {
@@ -90,7 +109,7 @@ export const DarkPoolApp: React.FC = () => {
                       e.currentTarget.style.background = 'linear-gradient(90deg, #2563eb, #7c3aed)';
                     }}
                   >
-                    Connect Wallet
+                    {isConnecting ? 'Connecting...' : 'Connect Wallet'}
                   </button>
                 ) : (
                   <div style={{
@@ -99,7 +118,9 @@ export const DarkPoolApp: React.FC = () => {
                     padding: '8px 16px',
                     borderRadius: '8px'
                   }}>
-                    <span style={{ fontSize: '14px' }}>0xf39F...2266</span>
+                    <span style={{ fontSize: '14px' }}>
+                      {web3Service.formatAddress(userAddress, ensName)}
+                    </span>
                   </div>
                 )}
               </div>
@@ -198,12 +219,23 @@ export const DarkPoolApp: React.FC = () => {
               <StatsSection />
               <div style={{ 
                 display: 'grid',
-                gridTemplateColumns: '3fr 1fr',
+                gridTemplateColumns: '1fr 1fr',
                 gap: '32px',
                 marginTop: '32px'
               }}>
-                <TradingInterface onTradeSubmit={handleTradeSubmit} />
-                <OrderBook />
+                <TradingInterface 
+                  onTradeSubmit={handleTradeSubmit} 
+                  userAddress={userAddress}
+                />
+                <ContractInteraction 
+                  userAddress={userAddress}
+                  onTransactionUpdate={(tx) => {
+                    setRecentTransactions(prev => [tx, ...prev].slice(0, 10));
+                  }}
+                />
+              </div>
+              <div style={{ marginTop: '32px' }}>
+                <OrderBook recentTransactions={recentTransactions} />
               </div>
             </>
           )}
@@ -278,26 +310,60 @@ const StatsSection: React.FC = () => (
   </div>
 );
 
-const TradingInterface: React.FC<{onTradeSubmit: (trade: any) => void}> = ({onTradeSubmit}) => {
+const TradingInterface: React.FC<{onTradeSubmit: (trade: any) => void, userAddress?: string}> = ({onTradeSubmit, userAddress}) => {
   const [tradeType, setTradeType] = useState<'buy' | 'sell'>('buy');
   const [fromToken, setFromToken] = useState('ETH');
   const [toToken, setToToken] = useState('USDC');
   const [amount, setAmount] = useState('');
   const [minReceive, setMinReceive] = useState('');
   const [isPrivateOrder, setIsPrivateOrder] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [estimatedGas, setEstimatedGas] = useState('');
+  const [estimatedOutput, setEstimatedOutput] = useState('');
 
-  const handleSubmit = () => {
-    if (!amount || !minReceive) return;
+  const handleSubmit = async () => {
+    if (!amount || !minReceive || !userAddress) return;
     
-    onTradeSubmit({
-      type: tradeType,
-      fromToken,
-      toToken,
-      amount,
-      minReceive,
-      isPrivate: isPrivateOrder
-    });
+    setIsSubmitting(true);
+    try {
+      // Get swap estimates
+      const estimates = await web3Service.simulateSwap(fromToken, toToken, amount, isPrivateOrder);
+      setEstimatedGas(estimates.estimatedGas);
+      setEstimatedOutput(estimates.estimatedOutput);
+      
+      onTradeSubmit({
+        type: tradeType,
+        fromToken,
+        toToken,
+        amount,
+        minReceive,
+        isPrivate: isPrivateOrder,
+        estimates
+      });
+    } catch (error) {
+      console.error('Failed to submit trade:', error);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
+  
+  // Auto-update estimates when inputs change
+  useEffect(() => {
+    if (amount && fromToken && toToken && userAddress) {
+      const updateEstimates = async () => {
+        try {
+          const estimates = await web3Service.simulateSwap(fromToken, toToken, amount, isPrivateOrder);
+          setEstimatedGas(estimates.estimatedGas);
+          setEstimatedOutput(estimates.estimatedOutput);
+        } catch (error) {
+          // Ignore estimation errors
+        }
+      };
+      
+      const timeout = setTimeout(updateEstimates, 500);
+      return () => clearTimeout(timeout);
+    }
+  }, [amount, fromToken, toToken, isPrivateOrder, userAddress]);
 
   return (
     <div style={{
@@ -495,6 +561,24 @@ const TradingInterface: React.FC<{onTradeSubmit: (trade: any) => void}> = ({onTr
           </div>
         </div>
 
+        {estimatedOutput && (
+          <div style={{
+            backgroundColor: 'rgba(55, 65, 81, 0.5)',
+            borderRadius: '8px',
+            padding: '12px',
+            fontSize: '14px'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+              <span style={{ color: '#9ca3af' }}>Estimated Output:</span>
+              <span style={{ color: 'white' }}>{web3Service.formatAmount(estimatedOutput, toToken)}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ color: '#9ca3af' }}>Estimated Gas:</span>
+              <span style={{ color: 'white' }}>{parseInt(estimatedGas).toLocaleString()}</span>
+            </div>
+          </div>
+        )}
+
         {isPrivateOrder && (
           <div style={{
             backgroundColor: 'rgba(59, 130, 246, 0.1)',
@@ -514,7 +598,7 @@ const TradingInterface: React.FC<{onTradeSubmit: (trade: any) => void}> = ({onTr
 
         <button
           onClick={handleSubmit}
-          disabled={!amount || !minReceive}
+          disabled={!amount || !minReceive || !userAddress || isSubmitting}
           style={{
             width: '100%',
             padding: '16px',
@@ -522,11 +606,11 @@ const TradingInterface: React.FC<{onTradeSubmit: (trade: any) => void}> = ({onTr
             fontWeight: '600',
             fontSize: '18px',
             transition: 'all 0.2s',
-            backgroundColor: tradeType === 'buy' ? '#059669' : '#dc2626',
+            backgroundColor: isSubmitting ? '#6b7280' : (tradeType === 'buy' ? '#059669' : '#dc2626'),
             color: 'white',
             border: 'none',
-            cursor: !amount || !minReceive ? 'not-allowed' : 'pointer',
-            opacity: !amount || !minReceive ? 0.5 : 1
+            cursor: (!amount || !minReceive || !userAddress || isSubmitting) ? 'not-allowed' : 'pointer',
+            opacity: (!amount || !minReceive || !userAddress || isSubmitting) ? 0.5 : 1
           }}
           onMouseEnter={(e) => {
             if (amount && minReceive) {
@@ -539,22 +623,41 @@ const TradingInterface: React.FC<{onTradeSubmit: (trade: any) => void}> = ({onTr
             }
           }}
         >
-          {isPrivateOrder ? '🔒 ' : ''}
-          Submit {tradeType === 'buy' ? 'Buy' : 'Sell'} Order
+          {isSubmitting ? 'Processing...' : (
+            <>
+              {isPrivateOrder ? '🔒 ' : ''}
+              Submit {tradeType === 'buy' ? 'Buy' : 'Sell'} Order
+            </>
+          )}
         </button>
       </div>
     </div>
   );
 };
 
-const OrderBook: React.FC = () => {
-  const orders = [
-    {id: '1', address: '0xf39F...2266', side: 'buy' as const, token: 'ETH/USDC', price: 2045.50, status: 'filled', isPrivate: true},
-    {id: '2', address: '0x8ba1...4dE2', side: 'sell' as const, token: 'ETH/USDC', price: 2048.20, status: 'pending', isPrivate: true},
-    {id: '3', address: '0x742d...5180', side: 'buy' as const, token: 'DAI/USDC', price: 1.001, status: 'filled', isPrivate: false},
-    {id: '4', address: '0x1234...abcd', side: 'sell' as const, token: 'ETH/DAI', price: 2046.80, status: 'pending', isPrivate: true},
-    {id: '5', address: '0x5678...ef90', side: 'buy' as const, token: 'ETH/USDC', price: 2044.10, status: 'filled', isPrivate: true},
+const OrderBook: React.FC<{recentTransactions?: TransactionInfo[]}> = ({ recentTransactions = [] }) => {
+  // Combine recent real transactions with mock data for demo
+  const mockOrders = [
+    {id: 'mock1', hash: '0x742d35Cc6Df5180', side: 'buy' as const, token: 'ETH/USDC', price: 2045.50, status: 'filled', isPrivate: true, timestamp: Date.now() - 300000},
+    {id: 'mock2', hash: '0x8ba1f109DbC4cdE2', side: 'sell' as const, token: 'ETH/USDC', price: 2048.20, status: 'pending', isPrivate: true, timestamp: Date.now() - 180000},
+    {id: 'mock3', hash: '0x1234567890abcdef', side: 'buy' as const, token: 'DAI/USDC', price: 1.001, status: 'filled', isPrivate: false, timestamp: Date.now() - 120000},
   ];
+  
+  // Convert transactions to order format and combine with mock data
+  const transactionOrders = recentTransactions.map((tx, index) => ({
+    id: tx.hash,
+    hash: tx.hash,
+    side: 'swap' as const,
+    token: 'ETH/USDC', // Simplified for demo
+    price: 2047.50, 
+    status: tx.status,
+    isPrivate: true,
+    timestamp: tx.timestamp,
+    gasUsed: tx.gasUsed,
+    blockNumber: tx.blockNumber
+  }));
+  
+  const orders = [...transactionOrders, ...mockOrders].sort((a, b) => b.timestamp - a.timestamp).slice(0, 8);
 
   return (
     <div style={{
@@ -574,16 +677,19 @@ const OrderBook: React.FC = () => {
       </div>
       
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-        {orders.map((order) => (
+        {orders.map((order: any) => (
           <div key={order.id} style={{
             backgroundColor: 'rgba(55, 65, 81, 0.5)',
             borderRadius: '8px',
-            padding: '12px'
+            padding: '12px',
+            border: order.hash ? '1px solid rgba(59, 130, 246, 0.3)' : '1px solid rgba(55, 65, 81, 0.3)'
           }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '14px' }}>
-              <span style={{ fontFamily: 'monospace', color: '#d1d5db' }}>{order.address}</span>
+              <span style={{ fontFamily: 'monospace', color: order.hash ? '#60a5fa' : '#d1d5db' }}>
+                {order.hash ? `${order.hash.slice(0, 10)}...${order.hash.slice(-6)}` : `Mock ${order.id}`}
+              </span>
               <span style={{ 
-                color: order.side === 'buy' ? '#10b981' : '#ef4444',
+                color: order.side === 'buy' ? '#10b981' : order.side === 'sell' ? '#ef4444' : '#60a5fa',
                 fontWeight: '500'
               }}>
                 {order.side.toUpperCase()}
@@ -598,14 +704,22 @@ const OrderBook: React.FC = () => {
                 {order.isPrivate && <span style={{ color: '#60a5fa' }}>🔒</span>}
               </div>
             </div>
-            <div style={{
-              fontSize: '12px',
-              marginTop: '4px',
-              color: order.status === 'filled' ? '#10b981' : 
-                    order.status === 'pending' ? '#f59e0b' : '#ef4444'
-            }}>
-              {order.status.toUpperCase()}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '12px', marginTop: '4px' }}>
+              <span style={{
+                color: order.status === 'filled' || order.status === 'confirmed' ? '#10b981' : 
+                      order.status === 'pending' ? '#f59e0b' : '#ef4444'
+              }}>
+                {order.status.toUpperCase()}
+              </span>
+              <span style={{ color: '#9ca3af' }}>
+                {new Date(order.timestamp).toLocaleTimeString()}
+              </span>
             </div>
+            {order.gasUsed && (
+              <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '2px' }}>
+                Gas: {parseInt(order.gasUsed).toLocaleString()} {order.blockNumber && `• Block: ${order.blockNumber}`}
+              </div>
+            )}
           </div>
         ))}
       </div>
