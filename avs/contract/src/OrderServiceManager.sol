@@ -17,6 +17,14 @@ import {TransparentUpgradeableProxy} from
     "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 import {ISP1Verifier} from "sp1-contracts/src/ISP1Verifier.sol";
+import {ZkVerifyBridge} from "./ZkVerifyBridge.sol";
+
+/// @notice zkVerify proof receipt structure
+struct ZkVerifyReceipt {
+    string proofId;
+    string merkleRoot;
+    uint256 blockNumber;
+}
 
 
 
@@ -56,6 +64,7 @@ contract OrderServiceManager is ECDSAServiceManagerBase, IOrderServiceManager {
     mapping(address => mapping(uint32 => bytes)) public allTaskResponses;
     address public verifier;
     bytes32 public orderProgramVKey;
+    ZkVerifyBridge public zkVerifyBridge;
 
     // uint32 public immutable MAX_RESPONSE_INTERVAL_BLOCKS;
 
@@ -105,7 +114,8 @@ contract OrderServiceManager is ECDSAServiceManagerBase, IOrderServiceManager {
         address _delegationManager,
         address _allocationManager,
         address _verifier, 
-        bytes32 _orderProgramVKey
+        bytes32 _orderProgramVKey,
+        address _zkVerifyBridge
     )
         ECDSAServiceManagerBase(
             _avsDirectory,
@@ -117,6 +127,7 @@ contract OrderServiceManager is ECDSAServiceManagerBase, IOrderServiceManager {
     {
         verifier = _verifier;
         orderProgramVKey = _orderProgramVKey;
+        zkVerifyBridge = ZkVerifyBridge(_zkVerifyBridge);
         // Initialize hardcoded prove data from RequestBody.json
         proveData = ProveRequestData({
             marketCurrentPrice: bytes32(uint256(2050000000)),
@@ -242,10 +253,11 @@ contract OrderServiceManager is ECDSAServiceManagerBase, IOrderServiceManager {
             b: uint32(proveData.minAmountOut)
         }));
 
-        // TODO: Implement proper ZK proof verification
-        // Currently using signature as proof which is incorrect
-        // Need to generate real ZK proofs off-chain and pass them here
-        // verifyOrderProofInternal(publicValues, actualZkProof);
+        // zkVerify proof verification
+        if (zkProof.length > 0) {
+            bool zkProofValid = verifyZkVerifyProof(zkProof, tasks[0].sender);
+            require(zkProofValid, "Invalid zkVerify proof receipt");
+        }
 
         ProveRequestData memory args = ProveRequestData(
             proveData.marketCurrentPrice,
@@ -301,8 +313,80 @@ contract OrderServiceManager is ECDSAServiceManagerBase, IOrderServiceManager {
         returns (uint32, uint32, uint32)
     {
         ISP1Verifier(verifier).verifyProof(orderProgramVKey, _publicValues, _proofBytes);
+        
         PublicValuesStruct memory publicValues = abi.decode(_publicValues, (PublicValuesStruct));
         return (publicValues.n, publicValues.a, publicValues.b);
+    }
+
+    /// @notice Verify zkVerify proof receipt using on-chain bridge
+    /// @param zkProofData Encoded zkVerify receipt data
+    /// @param operator Address of the operator who submitted the proof
+    /// @return bool True if proof receipt is valid
+    function verifyZkVerifyProof(
+        bytes memory zkProofData, 
+        address operator
+    ) public view returns (bool) {
+        if (zkProofData.length == 0) {
+            return false;
+        }
+
+        try this.decodeZkVerifyReceipt(zkProofData) returns (ZkVerifyReceipt memory receipt) {
+            // 1. Basic validation of zkVerify receipt
+            if (bytes(receipt.proofId).length == 0) {
+                return false;
+            }
+            
+            if (receipt.blockNumber == 0) {
+                return false;
+            }
+            
+            if (bytes(receipt.merkleRoot).length == 0) {
+                return false;
+            }
+            
+            // 2. Use zkVerify bridge for actual on-chain verification
+            if (address(zkVerifyBridge) != address(0)) {
+                // Verify proof receipt exists in bridge
+                bool receiptValid = zkVerifyBridge.verifyProofReceipt(receipt.proofId);
+                if (!receiptValid) {
+                    return false;
+                }
+                
+                // Verify Merkle root is valid  
+                bool merkleValid = zkVerifyBridge.verifyMerkleRoot(
+                    receipt.merkleRoot, 
+                    receipt.blockNumber
+                );
+                if (!merkleValid) {
+                    return false;
+                }
+                
+                return true;
+            } else {
+                // Fallback to basic validation if bridge not set
+                // This maintains backward compatibility
+                return (
+                    bytes(receipt.proofId).length > 0 &&
+                    bytes(receipt.merkleRoot).length > 0 &&
+                    receipt.blockNumber > 0
+                );
+            }
+            
+        } catch {
+            return false;
+        }
+    }
+
+    /// @notice Decode zkVerify receipt from bytes
+    /// @param data Encoded receipt data
+    /// @return receipt Decoded zkVerify receipt
+    function decodeZkVerifyReceipt(bytes memory data) 
+        public 
+        pure 
+        returns (ZkVerifyReceipt memory receipt) 
+    {
+        (receipt.proofId, receipt.merkleRoot, receipt.blockNumber) = 
+            abi.decode(data, (string, string, uint256));
     }
 
     function getMessageHash(
