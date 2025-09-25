@@ -77,6 +77,7 @@ npm run lifecycle      # Full deployment simulation
 ✅ **Complete deployment configuration** for easy testing  
 ✅ **Working CoW matching algorithms** (circular + direct matching)  
 ✅ **Integrated ZK proof framework** with SP1/Succinct  
+🆕 **SP1 + zkVerify Integration** - Privacy-preserving proof verification via specialized blockchain  
 
 ## 🎯 **Use Cases**
 
