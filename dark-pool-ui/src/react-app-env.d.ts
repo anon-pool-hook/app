@@ -1,0 +1,20 @@
+/// <reference types="react-scripts" />
+
+declare module '*.module.css' {
+  const classes: { [key: string]: string };
+  export default classes;
+}
+
+declare module '*.svg' {
+  import React = require('react');
+  export const ReactComponent: React.SFC<React.SVGProps<SVGSVGElement>>;
+  const src: string;
+  export default src;
+}
+
+// Extend Window interface for potential Web3 providers
+declare global {
+  interface Window {
+    ethereum?: any;
+  }
+}

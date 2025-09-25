@@ -44,7 +44,10 @@
     "execute:full": "echo '🚀 COMPLETE LIVE EXECUTION - Real contracts, proofs, zkVerify...' && npm run execute:live",
     "zkverify:live": "npx ts-node zkverify-hackathon-live.ts",
     "zkverify:hackathon": "echo '🏆 zkVerify Hackathon Demo - Ready for Judges...' && npx ts-node zkverify-hackathon-ready.ts",
-    "zkverify:live-attempt": "echo '🌐 REAL zkVerify testnet integration...' && npm run zkverify:live"
+    "zkverify:live-attempt": "echo '🌐 REAL zkVerify testnet integration...' && npm run zkverify:live",
+    "ui:start": "chmod +x start-ui.sh && ./start-ui.sh",
+    "ui:install": "cd dark-pool-ui && npm install",
+    "ui:build": "cd dark-pool-ui && npm run build"
   },
   "dependencies": {
     "dotenv": "^10.0.0",
