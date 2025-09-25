@@ -1,0 +1,36 @@
+{
+  "zkverify": {
+    "testnet": {
+      "rpc": "wss://testnet-rpc.zkverify.io",
+      "seed_phrase": "//Alice",
+      "network": "testnet"
+    },
+    "mainnet": {
+      "rpc": "wss://mainnet-rpc.zkverify.io", 
+      "network": "mainnet"
+    }
+  },
+  "sp1": {
+    "prover_mode": "network",
+    "target_cycles": 1000000
+  },
+  "ethereum": {
+    "testnet": {
+      "name": "goerli",
+      "rpc": "https://rpc.ankr.com/eth_goerli",
+      "chain_id": 5
+    }
+  },
+  "avs_contracts": {
+    "testnet": {
+      "service_manager": "",
+      "stake_registry": "",
+      "hook_address": ""
+    }
+  },
+  "deployment": {
+    "environment": "testnet",
+    "auto_verify": true,
+    "gas_limit": 8000000
+  }
+}
