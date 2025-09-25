@@ -1,0 +1,8 @@
+{
+  "zkVerifyBridge": "0x0E801D84Fa97b50751Dbf25036d067dCf18858bF",
+  "owner": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+  "zkVerifyRPC": "wss://testnet-rpc.zkverify.io",
+  "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+  "chainId": 31337,
+  "blockNumber": 29
+}
