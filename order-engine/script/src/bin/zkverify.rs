@@ -113,24 +113,24 @@ fn generate_zkverify_proof() -> Result<(), Box<dyn Error>> {
     stdin.write(&siblings);
     stdin.write(&indices);
 
-    println!("  🔄 Generating compressed SP1 proof...");
+    println!("  🔄 Generating shrink SP1 proof for zkVerify testnet...");
 
-    // Generate compressed proof first
-    let compressed_proof = client
+    // Generate shrink proof for zkVerify (required format)
+    let shrink_proof = client
         .prove(&pk, &stdin)
-        .compressed()
+        .shrink()
         .run()?;
 
-    println!("  ✅ Compressed proof generated and ready for zkVerify!");
+    println!("  ✅ Shrink proof generated and ready for zkVerify!");
 
     // Get verification key hash using SP1VerifyingKey::hash_bytes
     let vk_hash: [u8; 32] = vk.hash_bytes();
     
     // Get public values as bytes 
-    let public_values = compressed_proof.public_values.to_vec();
+    let public_values = shrink_proof.public_values.to_vec();
 
-    // Serialize the compressed proof for zkVerify (avoiding onchain verification path)
-    let proof_bytes = bincode::serialize(&compressed_proof.proof)?;
+    // Serialize the shrink proof for zkVerify
+    let proof_bytes = bincode::serialize(&shrink_proof.proof)?;
 
     println!("  📊 Proof details:");
     println!("    Image ID: {}", to_hex_with_prefix(&vk_hash));

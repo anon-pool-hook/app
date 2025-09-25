@@ -16,7 +16,7 @@ import fs from 'fs';
 import path from 'path';
 
 // zkVerify testnet endpoint (official)
-const ZKVERIFY_TESTNET_RPC = 'wss://testnet-rpc.zkverify.io';
+const ZKVERIFY_TESTNET_RPC = process.env.ZKVERIFY_RPC || 'wss://testnet-rpc.zkverify.io';
 
 // Types for our proof data
 export interface ZkVerifyProofData {
@@ -48,6 +48,7 @@ export class ZkVerifyClient {
      */
     async initialize(seedPhrase?: string): Promise<void> {
         console.log('🔗 Connecting to zkVerify testnet...');
+        console.log(`  📍 Endpoint: ${ZKVERIFY_TESTNET_RPC}`);
         
         const provider = new WsProvider(ZKVERIFY_TESTNET_RPC);
         this.api = await ApiPromise.create({ provider });

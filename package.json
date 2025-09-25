@@ -37,7 +37,9 @@
     "testnet:complete": "npm run deploy:testnet && npm run zkverify:full-demo",
     "demo:hackathon": "node zkverify-hackathon-demo.js",
     "demo:functional": "npx ts-node functional-demo.ts",
-    "demo:full": "npm run demo:hackathon && echo '\n🔄 Running functional demo...\n' && npm run demo:functional"
+    "demo:full": "npm run demo:hackathon && echo '\n🔄 Running functional demo...\n' && npm run demo:functional",
+    "demo:testnet": "node testnet-live-demo.js",
+    "demo:live": "echo '🌐 Starting LIVE testnet demo with real transactions...' && npm run demo:testnet"
   },
   "dependencies": {
     "dotenv": "^10.0.0",
