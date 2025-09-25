@@ -84,6 +84,9 @@ library AVSDeploymentLib {
         address verifier = address(new SP1VerifierGateway(address(1)));
         bytes32 vkKey = 0x00b51cef3572d1a49ae7f4a332221cab31cdb72b131dbf28fb6ab26e15458fe2;
         address orderServiceManager = deployment.orderServiceManager;
+        // zkVerify Bridge address (deployed in previous step)
+        address zkVerifyBridge = 0x0E801D84Fa97b50751Dbf25036d067dCf18858bF;
+        
         address orderServiceManagerImpl = address(
             new OrderServiceManager(
                 core.avsDirectory,
@@ -92,7 +95,8 @@ library AVSDeploymentLib {
                 core.delegationManager,
                 core.allocationManager,
                 verifier,
-                vkKey
+                vkKey,
+                zkVerifyBridge
             )
         );
 
