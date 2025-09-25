@@ -41,7 +41,10 @@
     "demo:testnet": "node testnet-live-demo.js",
     "demo:live": "echo '🌐 Starting LIVE testnet demo with real transactions...' && npm run demo:testnet",
     "execute:live": "npx ts-node live-execution-demo.ts",
-    "execute:full": "echo '🚀 COMPLETE LIVE EXECUTION - Real contracts, proofs, zkVerify...' && npm run execute:live"
+    "execute:full": "echo '🚀 COMPLETE LIVE EXECUTION - Real contracts, proofs, zkVerify...' && npm run execute:live",
+    "zkverify:live": "npx ts-node zkverify-hackathon-live.ts",
+    "zkverify:hackathon": "echo '🏆 zkVerify Hackathon Demo - Ready for Judges...' && npx ts-node zkverify-hackathon-ready.ts",
+    "zkverify:live-attempt": "echo '🌐 REAL zkVerify testnet integration...' && npm run zkverify:live"
   },
   "dependencies": {
     "dotenv": "^10.0.0",
