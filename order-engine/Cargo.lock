@@ -1464,6 +1464,7 @@ name = "fibonacci-script"
 version = "0.1.0"
 dependencies = [
  "alloy-sol-types",
+ "bincode 1.3.3",
  "clap",
  "dotenv",
  "fibonacci-lib",
