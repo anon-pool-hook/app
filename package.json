@@ -34,7 +34,10 @@
     "deploy:testnet": "chmod +x deploy/deploy-testnet.sh && ./deploy/deploy-testnet.sh",
     "benchmark:sp1": "cd order-engine && SP1_PROVER=network cargo run --release --bin zkverify -- --generate-proof",
     "performance:report": "node -e \"console.log('Performance report: See PERFORMANCE_OPTIMIZATION.md for details')\"",
-    "testnet:complete": "npm run deploy:testnet && npm run zkverify:full-demo"
+    "testnet:complete": "npm run deploy:testnet && npm run zkverify:full-demo",
+    "demo:hackathon": "node zkverify-hackathon-demo.js",
+    "demo:functional": "npx ts-node functional-demo.ts",
+    "demo:full": "npm run demo:hackathon && echo '\n🔄 Running functional demo...\n' && npm run demo:functional"
   },
   "dependencies": {
     "dotenv": "^10.0.0",
